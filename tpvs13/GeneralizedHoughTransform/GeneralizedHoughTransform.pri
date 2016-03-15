@@ -8,3 +8,4 @@ message("You are running qmake on a generated .pro file. This may not work!")
 
 
 SOURCES += ./main.cpp
+TRANSLATIONS += ./generalizedhoughtransform_zh.ts

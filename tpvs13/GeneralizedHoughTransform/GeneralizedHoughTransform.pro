@@ -16,3 +16,4 @@ OBJECTS_DIR += debug
 UI_DIR += ./GeneratedFiles
 RCC_DIR += ./GeneratedFiles
 include(GeneralizedHoughTransform.pri)
+TRANSLATIONS += generalizedhoughtransform_zh.ts

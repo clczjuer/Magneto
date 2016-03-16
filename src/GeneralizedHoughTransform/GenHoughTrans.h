@@ -44,9 +44,13 @@ public:
 		refPoint = pt; 
 	}
 	static void phase(cv::Mat &src, cv::Mat &angle);
+	static void getEdgeInfo(cv::Mat &src, cv::Mat & edge, cv::Point pt, std::vector<Magneto::Rpoint> &pts);
+	static void getEdgeInfo(cv::Mat &src, cv::Mat & edge, int intervals, float rangeXY, std::vector<Magneto::Rpoint2> &pts2);
+
 	void createRTable(cv::Mat &src, cv::Mat & edge);
 
 	void accumlate4Shift(cv::Mat & src, cv::Mat & edge);
+	void accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge);
 
 	void bestCandidate(cv::Mat & src);
 

@@ -57,7 +57,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <OutputFile>$(OutDir)\..\..\..\runner13\$(ProjectName).exe</OutputFile>
+      <OutputFile>$(OutDir)\..\..\..\runner13\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(QTDIR)\lib;..\..\..\lpOpenCV\build\x86\vc13\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>qtmaind.lib;Qt5Cored.lib;Qt5Widgetsd.lib;opencv_core249d.lib;opencv_highgui249d.lib;opencv_imgproc249d.lib;%(AdditionalDependencies)</AdditionalDependencies>

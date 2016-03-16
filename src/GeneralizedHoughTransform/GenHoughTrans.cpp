@@ -15,26 +15,38 @@ GenHoughTrans::~GenHoughTrans()
 {
 }
 
-void GenHoughTrans::createRTable(cv::Mat &src, cv::Mat & edge)
+
+void GenHoughTrans::genRefPoint(cv::Mat &edge)
 {
-	// find reference point inside contour image and save it in variable refPoint
+	for (int i = 0; i < edge.rows; i++) {
+		for (int j = 0; j < edge.cols; j++) {
+			if (edge.at<uchar>(i, j) == 127) {
+				refPoint = Point(j, i);
+				break;
+			}
+		}
+	}
+}
+
+void GenHoughTrans::getEdgeInfo(cv::Mat &src, cv::Mat & edge, Point pt, std::vector<Rpoint> &pts)
+{
+	assert(src.size() == edge.size());
 	Mat angle;
 	GenHoughTrans::phase(src, angle);
 
 	// contour points:
-	std::vector<Rpoint> pts;
 	pts.clear();
-	int mindx = INT_MAX;
-	int maxdx = INT_MIN;
-	for (int j = 0; j < edge.rows; ++j) {
+	int nr = src.rows;
+	int nc = src.cols;
+	for (int j = 0; j < nr; ++j) {
 		uchar* pEdgeData = (uchar*)edge.ptr<uchar>(j);
 		float* pAngleData = (float*)angle.ptr<float>(j);
-		for (int i = 0; i < edge.cols; ++i) {
+		for (int i = 0; i < nc; ++i) {
 			if (255 == pEdgeData[i])
 			{
 				Rpoint rpt;
-				rpt.dx = refPoint(0) - i;
-				rpt.dy = refPoint(1) - j;
+				rpt.dx = pt.x - i;
+				rpt.dy = pt.y - j;
 				float a1 = pAngleData[i];
 				rpt.phi = ((a1 > CV_PI) ? a1 - CV_PI : a1);
 
@@ -45,45 +57,15 @@ void GenHoughTrans::createRTable(cv::Mat &src, cv::Mat & edge)
 			}
 		}
 	}
-	// maximum width of the contour
-	//wtemplate = maxdx - mindx + 1;
-
-	Rtable.clear();
-	Rtable.resize(intervals);
-	// put points in the right interval, according to discretized angle and range size 
-	float range = CV_PI / intervals;
-	for (vector<Rpoint>::size_type t = 0; t < pts.size(); ++t){
-		int angleindex = (int)((pts[t].phi) / range);
-		if (angleindex == intervals) angleindex = intervals - 1;
-		Rtable[angleindex].push_back(Vec2i(pts[t].dx, pts[t].dy));
-	}
 }
 
-void GenHoughTrans::phase(Mat &src, Mat &angle)
+void GenHoughTrans::getEdgeInfo(cv::Mat &src, cv::Mat & edge, int intervals, float rangeXY, std::vector<Rpoint2> &pts2)
 {
-	if (src.empty()) {
-		return;
-	}
-	Mat dx;
-	dx.create(Size(src.cols, src.rows), CV_32F);
-	Sobel(src, dx, CV_32F, 1, 0, CV_SCHARR);
-	Mat dy;
-	dy.create(Size(src.cols, src.rows), CV_32F);
-	Sobel(src, dy, CV_32F, 0, 1, CV_SCHARR);
-	cv::phase(dx, dy, angle);
-}
-
-void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
-{
-	// load all points from image all image contours on vector pts2
 	int nr = src.rows;
 	int nc = src.cols;
 	float deltaphi = CV_PI / intervals;
 	float inv_deltaphi = (float)intervals / CV_PI;
 	float inv_rangeXY = (float)1 / rangeXY;
-	float pi_half = CV_PI*0.5f;
-	std::vector<Rpoint2> pts2;
-
 	cv::Mat angle;
 	GenHoughTrans::phase(src, angle);
 
@@ -106,7 +88,46 @@ void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
 			}
 		}
 	}
+}
 
+void GenHoughTrans::phase(Mat &src, Mat &angle)
+{
+	if (src.empty()) {
+		return;
+	}
+	Mat dx;
+	dx.create(Size(src.cols, src.rows), CV_32F);
+	Sobel(src, dx, CV_32F, 1, 0, CV_SCHARR);
+	Mat dy;
+	dy.create(Size(src.cols, src.rows), CV_32F);
+	Sobel(src, dy, CV_32F, 0, 1, CV_SCHARR);
+	cv::phase(dx, dy, angle);
+}
+
+void GenHoughTrans::createRTable(cv::Mat &src, cv::Mat & edge)
+{
+	std::vector<Rpoint> pts;
+	GenHoughTrans::getEdgeInfo(src, edge, refPoint, pts);
+
+	Rtable.clear();
+	Rtable.resize(intervals);
+	// put points in the right interval, according to discretized angle and range size 
+	float range = CV_PI / intervals;
+	for (vector<Rpoint>::size_type t = 0; t < pts.size(); ++t){
+		int angleindex = (int)((pts[t].phi) / range);
+		if (angleindex == intervals) angleindex = intervals - 1;
+		Rtable[angleindex].push_back(Vec2i(pts[t].dx, pts[t].dy));
+	}
+}
+
+void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
+{
+	// load all points from image all image contours on vector pts2
+	int nr = src.rows;
+	int nc = src.cols;
+	std::vector<Rpoint2> pts2;
+	GenHoughTrans::getEdgeInfo(src, edge, intervals, rangeXY, pts2);
+	
 	int X = ceil((float)nc / rangeXY);
 	int Y = ceil((float)nr / rangeXY);
 	int matSizep_S[] = { X, Y};
@@ -127,17 +148,6 @@ void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
 	}
 }
 
-void GenHoughTrans::genRefPoint(cv::Mat &edge)
-{
-	for (int i = 0; i < edge.rows; i++) {
-		for (int j = 0; j < edge.cols; j++) {
-			if (edge.at<uchar>(i, j) == 127) {
-				refPoint = Point(j, i);
-				break;
-			}
-		}
-	}
-}
 
 void GenHoughTrans::bestCandidate(cv::Mat & src)
 {
@@ -158,7 +168,7 @@ void GenHoughTrans::bestCandidate(cv::Mat & src)
 	std::vector<std::vector<Vec2i>> Rtablerotatedscaled(intervals);
 	float deltaphi = CV_PI / intervals;
 	int r0 = -floor(phimin / deltaphi);
-	int reff = 0;// id_max[3] - r0;
+	int reff =  id_max[2] - r0;
 	float cs = cos(reff*deltaphi);
 	float sn = sin(reff*deltaphi);
 	//int w = wmin + id_max[2] * rangeS;
@@ -191,3 +201,50 @@ void GenHoughTrans::bestCandidate(cv::Mat & src)
 		alt = !alt;
 	}
 }
+
+void GenHoughTrans::accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge)
+{
+	// load all points from image all image contours on vector pts2
+	int nr = src.rows;
+	int nc = src.cols;
+	std::vector<Rpoint2> pts2;
+	GenHoughTrans::getEdgeInfo(src, edge, intervals, rangeXY, pts2);
+
+	float deltaphi = CV_PI / intervals;
+	int R = ceil(phimax / deltaphi) - floor(phimin / deltaphi);
+	int r0 = -floor(phimin / deltaphi);
+	int X = ceil((float)nc / rangeXY);
+	int Y = ceil((float)nr / rangeXY);
+	int matSizep_S[] = { X, Y, R };
+	accum.create(3, matSizep_S, CV_16S);
+	accum = Scalar::all(0);
+
+	for (int r = 0; r < R; r++) { //rotation
+		int reff = r - r0;
+		std::vector<std::vector<Vec2f>> Rtablerotated(intervals);
+		float cs = cos(reff*deltaphi);
+		float sn = sin(reff*deltaphi);
+		for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < Rtable.size(); ++ii) {
+			for (std::vector<std::vector<Vec2i>>::size_type jj = 0; jj < Rtable[ii].size(); jj++) {
+				int iiMod = (ii + reff) % intervals;
+				Rtablerotated[iiMod].push_back( Vec2f(cs*Rtable[ii][jj][0] - sn * Rtable[ii][jj][1],
+					sn*Rtable[ii][jj][0] + cs*Rtable[ii][jj][1]));
+			}
+		}
+
+		for (vector<Rpoint2>::size_type t = 0; t < pts2.size(); ++t){ // XY plane				
+			int angleindex = pts2[t].phiIndex;
+			for (std::vector<Vec2f>::size_type index = 0; index < Rtablerotated[angleindex].size(); ++index){
+				float deltax = Rtablerotated[angleindex][index][0];
+				float deltay = Rtablerotated[angleindex][index][1];
+				int xcell = (int)(pts2[t].x + deltax);
+				int ycell = (int)(pts2[t].y + deltay);
+				if ((xcell<X) && (ycell<Y) && (xcell>-1) && (ycell>-1)){
+					//(*ptrat2D<short>(accum, xcell, ycell))++;
+					(*ptrat3D<short>(accum, xcell, ycell, r))++;
+				}
+			}
+		}
+	}
+}
+

@@ -19,11 +19,6 @@
       <Extensions>ts;xlf</Extensions>
       <ParseFiles>false</ParseFiles>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h</Extensions>
-      <ParseFiles>true</ParseFiles>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -39,11 +34,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\GeneralizedHoughTransform\GenHoughTrans.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\GeneralizedHoughTransform\Manipulation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClInclude Include="..\..\src\GeneralizedHoughTransform\GenHoughTrans.h" />
+    <ClInclude Include="..\..\src\GeneralizedHoughTransform\Manipulation.h" />
   </ItemGroup>
 </Project>

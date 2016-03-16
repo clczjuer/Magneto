@@ -8,22 +8,22 @@ int main(int argc, char *argv[])
 {
 	QCoreApplication a(argc, argv);
 
-	GenHoughTrans ght;
 	QString strPath = qApp->applicationDirPath();
 
 
-#define LP_LOCK_1
+//#define LP_LOCK_
 #ifdef LP_LOCK_
 	{
-		cv::Mat imgTemplate = cv::imread(QString(strPath + "//files//contour_def.bmp").toLatin1().data(), -1);
+		GenHoughTrans ght;
+		cv::Mat imgTemplate = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//contour_def.bmp").toLatin1().data(), -1);
 		ght.genRefPoint(imgTemplate);
-		cv::Mat imgSrc = cv::imread(QString(strPath + "//files//template_original.jpg").toLatin1().data(), 0);
+		cv::Mat imgSrc = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//template_original.jpg").toLatin1().data(), 0);
 		ght.createRTable(imgSrc, imgTemplate);
-		cv::Mat imgEdge = cv::imread(QString(strPath + "//files//contour_rough.bmp").toLatin1().data(), 0);
-		imgSrc = cv::imread(QString(strPath + "//files//rotate25.bmp").toLatin1().data(), 0);
+		cv::Mat imgEdge;// = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//contour_rough.bmp").toLatin1().data(), 0);
+		imgSrc = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//template_original2.bmp").toLatin1().data(), 0);
 		Canny(imgSrc, imgEdge, 80, 100, 3);
 		//	ght.accumlate4Shift(imgSrc, imgEdge);
-		ght.setMethod(GenHoughTrans::emRotate);
+		ght.setMethod(GenHoughTrans::emRotate + GenHoughTrans::emXY);
 		ght.accumlate(imgSrc, imgEdge);
 		ght.bestCandidate(imgSrc);
 	}
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 		cv::Mat imgSrc = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//src2.png").toLatin1().data(), 0);
 		double dScale = 4;
 		//resize(imgSrc, imgSrc, Size(imgSrc.cols / dScale, imgSrc.rows / dScale));
-
+		GenHoughTrans ght;
 		cv::Point ptCenter(1464/dScale, 1000/dScale);
 		ght.genRefPoint(ptCenter);
 
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 		//imgSrc = cv::imread(QString(strPath + "//files//rotate25.bmp").toLatin1().data(), 0);
 		Canny(imgDst, imgEdge, 200, 300);
 		//	ght.accumlate4Shift(imgSrc, imgEdge);
-		ght.setMethod(GenHoughTrans::emRotate);
+		ght.setMethod(GenHoughTrans::emRotate + GenHoughTrans::emXY);
 		ght.accumlate(imgDst, imgEdge);
 		ght.bestCandidate(imgDst);
 	}

@@ -39,8 +39,10 @@ class GenHoughTrans
 	int rangeXY;
 
 	int method;
-	int deltaPhi;
+	float deltaPhi;
 
+	int R;
+	int S;
 
 public:
 	enum EM_GHT_METHOD{
@@ -53,14 +55,29 @@ public:
 	float getMinPhi() const { return phimin; }
 	float getMaxPhi() const { return phimax; }
 
-	int getFloorR() const {return}
+	float getDeltaPhi() { return deltaPhi; }
+	int getR() const { return R; }
+	int getS() const { return S; }
+	int getFloorR() const { return floor(phimin / deltaPhi); }
+	int getCeilR() const  { return ceil(phimax / deltaPhi); }
+	int getX(int w) const { return ceil((float)w / rangeXY); }
+	int getY(int h) const { return ceil((float)h / rangeXY); }
 
 	int getRangeXY() const { return rangeXY; }
-
 	void genRefPoint(cv::Mat &edge);
 	void genRefPoint(cv::Point pt) {
 		refPoint = pt; 
 	}
+
+	static int genKey(int R, int S = 1) {
+		return R * S;
+	};
+
+	static void parse(int key, int R, int &r, int &s) {
+		s = key / R;
+		r = key % R;
+	}
+
 
 
 
@@ -71,15 +88,10 @@ public:
 	void createRTable(cv::Mat &src, cv::Mat & edge);
 
 	void accumlate(cv::Mat & src, cv::Mat & edge);
-	void accumlate4Shift();
-
-	void accumlate4Shift(cv::Mat & src, cv::Mat & edge);
-	void accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge);
-	void accumlate4Rotate(cv::Mat & src, cv::Mat & edge);
 
 	void bestCandidate(cv::Mat & src);
 
-	void detect(cv::Size size, int r);
+	void detect(cv::Size size, int r, int s = 1);
 
 	template<typename T1, typename T2>
 	static void RotateTransform(std::vector<std::vector<T1>> & RtableSrc,

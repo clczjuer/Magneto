@@ -6,11 +6,12 @@ using namespace Magneto;
 
 GenHoughTrans::GenHoughTrans()
 {
-	intervals = 25;
+	intervals = 36;
 	phimin = -CV_PI;
 	phimax = CV_PI;
 	rangeXY = 1;
 	method = emXY + emRotate + emScale;
+	deltaPhi = CV_PI / intervals;
 }
 
 GenHoughTrans::~GenHoughTrans()
@@ -128,109 +129,79 @@ void GenHoughTrans::setMethod(int method)
 
 void GenHoughTrans::accumlate(cv::Mat & src, cv::Mat & edge)
 {
-	std::vector<Rpoint2> pts2;
 	GenHoughTrans::getEdgeInfo(src, edge, intervals, rangeXY, pts2);
 
 	int nr = src.rows;
 	int nc = src.cols;
 	Size size(nc, nr);
 
-	float deltaphi = CV_PI / intervals;
-	int R = ceil(phimax / deltaphi) - floor(phimin / deltaphi);
-	int r0 = -floor(phimin / deltaphi);
-
-	int X = ceil((float)nc / rangeXY);
-	int Y = ceil((float)nr / rangeXY);
-	int S = 1;// ceil((float)(wmax - wmin) / rangeS + 1.0f);
+	int r0 = getFloorR();
+	R = getCeilR() - getFloorR();
+	int X = getX(nc);
+	int Y = getY(nr);
+	S = 1;
 
 	int matSizep_S[] = { X, Y, R};
 	accum.create(3, matSizep_S, CV_16S);
 	accum = Scalar::all(0);
 
+	double start = getTickCount();
 
-	if (emXY == method) {
-		accumlate4Shift(src, edge);
-	}
-	else if (emXY + emRotate == method) {
-		accumlate4ShiftAndRotate(src, edge);
-	}
-	else if (emRotate == method) {
-		accumlate4ShiftAndRotate(src, edge);
-	}
+	parallel_for_(Range(0, GenHoughTrans::genKey(getR(), getS())), GHTInvoker(this, Size(nc, nr)));
 
-	return;
+	double end = getTickCount();
+	double time = (end - start) / getTickFrequency() * 1000.0;
+	std::cout << "total" << ":   " << time << std::endl;
 }
 
-void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
-{
-	// load all points from image all image contours on vector pts2
-	int nr = src.rows;
-	int nc = src.cols;
-	std::vector<Rpoint2> pts2;
-	GenHoughTrans::getEdgeInfo(src, edge, intervals, rangeXY, pts2);
-	
-	int X = ceil((float)nc / rangeXY);
-	int Y = ceil((float)nr / rangeXY);
-	int matSizep_S[] = { X, Y};
-	accum.create(2, matSizep_S, CV_16S);
-	accum = Scalar::all(0);
-
-	for (vector<Rpoint2>::size_type t = 0; t < pts2.size(); ++t){ // XY plane				
-		int angleindex = pts2[t].phiIndex;
-		for (std::vector<Vec2f>::size_type index = 0; index < Rtable[angleindex].size(); ++index){
-			float deltax = Rtable[angleindex][index][0];
-			float deltay = Rtable[angleindex][index][1];
-			int xcell = (int)(pts2[t].x + deltax);
-			int ycell = (int)(pts2[t].y + deltay);
-			if ((xcell<X) && (ycell<Y) && (xcell>-1) && (ycell>-1)){
-				(*ptrat2D<short>(accum, xcell, ycell))++;
-			}
-		}
-	}
-}
-
-void GenHoughTrans::accumlate4Shift()
-{
-
-}
 void GenHoughTrans::bestCandidate(cv::Mat & src)
 {
-	double minval;
-	double maxval;
 	int id_min[4] = { 0, 0, 0, 0 };
 	int id_max[4] = { 0, 0, 0, 0 };
+	double minval;
+	double maxval;
 	minMaxIdx(accum, &minval, &maxval, id_min, id_max);
-
-
 	int nr = src.rows;
 	int nc = src.cols;
 
-	double dMax = -1;
-	int index = 0;
-	for (int i = 0; i < nr; i++) {
-		double r = (*ptrat3D<short>(accum, refPoint(0), refPoint(1) , i));
-		if (r > dMax) {
-			index = i;
-			dMax = r;
-		}
+	// reference point
+	Vec2i referenceP;
+	if ( (method & emXY) == 0) {
+		referenceP = refPoint;
+	}
+	else {
+		referenceP = Vec2i(id_max[0] * getRangeXY() + (getRangeXY() + 1) / 2,
+			id_max[1] * getRangeXY() + (getRangeXY() + 1) / 2);
 	}
 
-	id_max[2] = index;
+	// rotate index
+	if ((emRotate & method) == 1) {
+		double dMax = -1;
+		int index = 0;
+		for (int i = 0; i < nr; i++) {
+			double r = (*ptrat3D<short>(accum, refPoint(0), refPoint(1), i));
+			if (r > dMax) {
+				index = i;
+				dMax = r;
+			}
+		}
+		id_max[2] = index;
+	}
 
-	Mat	input_img2;// = input_img.clone();
-	cvtColor(src, input_img2, CV_GRAY2BGR);
-	Vec2i referenceP = refPoint;//  Vec2i(id_max[0] * rangeXY + (rangeXY + 1) / 2, id_max[1] * rangeXY + (rangeXY + 1) / 2);
-	Point pt = referenceP;
-	cv::circle(input_img2, pt, 3, Scalar(0, 0, 255), 2);
-	// rotate and scale points all at once. Then impress them on image
-	std::vector<std::vector<Vec2i>> Rtablerotatedscaled(intervals);
-	float deltaphi = CV_PI / intervals;
-	int r0 = -floor(phimin / deltaphi);
-	int reff = id_max[2] - r0;
-	float cs = cos(reff*deltaphi);
-	float sn = sin(reff*deltaphi);
-	//int w = wmin + id_max[2] * rangeS;
+	int reff = id_max[2] + getFloorR();
+	float cs = cos(reff*deltaPhi);
+	float sn = sin(reff*deltaPhi);
+
+	//! S
 	float wratio = 1;// (float)w / (wtemplate);
+	if ((emScale & method) == 1) {
+		//int w = wmin + id_max[2] * rangeS;
+		//float wratio = (float)w / (wtemplate);
+	}
+	
+	Mat	input_img2;
+	cvtColor(src, input_img2, CV_GRAY2BGR);
+	cv::circle(input_img2, referenceP, 3, Scalar(0, 0, 255), 2);
 	for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < Rtable.size(); ++ii){
 		for (std::vector<Vec2i>::size_type jj = 0; jj < Rtable[ii].size(); ++jj){
 			int iimod = (ii + reff) % intervals;
@@ -260,85 +231,32 @@ void GenHoughTrans::bestCandidate(cv::Mat & src)
 	}
 }
 
-void GenHoughTrans::accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge)
-{
-	// load all points from image all image contours on vector pts2
-	int nr = src.rows;
-	int nc = src.cols;
-	GenHoughTrans::getEdgeInfo(src, edge, intervals, rangeXY, pts2);
-
-	float deltaphi = CV_PI / intervals;
-	int R = ceil(phimax / deltaphi) - floor(phimin / deltaphi);
-	int r0 = -floor(phimin / deltaphi);
-	int X = ceil((float)nc / rangeXY);
-	int Y = ceil((float)nr / rangeXY);
-	int matSizep_S[] = { X, Y, R };
-	accum.create(3, matSizep_S, CV_16S);
-	accum = Scalar::all(0);
-
-	double start = getTickCount();
-
-	//GenHoughTrans::RotateTransform();
-	parallel_for_(Range(0, R), GHTInvoker(this, Size(nc, nr)));
-
-// 	
-// 	for (int r = 0; r < R; r++) { //rotation
-// 		int reff = r - r0;
-// 		std::vector<std::vector<Vec2f>> Rtablerotated(intervals);
-// 		float cs = cos(reff*deltaphi);
-// 		float sn = sin(reff*deltaphi);
-// 		for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < Rtable.size(); ++ii) {
-// 			for (std::vector<std::vector<Vec2i>>::size_type jj = 0; jj < Rtable[ii].size(); jj++) {
-// 				int iiMod = (ii + reff) % intervals;
-// 				Rtablerotated[iiMod].push_back( Vec2f(cs*Rtable[ii][jj][0] - sn * Rtable[ii][jj][1],
-// 					sn*Rtable[ii][jj][0] + cs*Rtable[ii][jj][1]));
-// 			}
-// 		}
-// 
-// 		for (vector<Rpoint2>::size_type t = 0; t < pts2.size(); ++t){ // XY plane				
-// 			int angleindex = pts2[t].phiIndex;
-// 			for (std::vector<Vec2f>::size_type index = 0; index < Rtablerotated[angleindex].size(); ++index){
-// 				float deltax = Rtablerotated[angleindex][index][0];
-// 				float deltay = Rtablerotated[angleindex][index][1];
-// 				int xcell = (int)(pts2[t].x + deltax);
-// 				int ycell = (int)(pts2[t].y + deltay);
-// 				if ((xcell<X) && (ycell<Y) && (xcell>-1) && (ycell>-1)){
-// 					//(*ptrat2D<short>(accum, xcell, ycell))++;
-// 					(*ptrat3D<short>(accum, xcell, ycell, r))++;
-// 				}
-// 			}
-// 		}
-// 	}
-
-	double end = getTickCount();
-	double time = (end - start) / getTickFrequency() * 1000.0;
-	std::cout << "total" << ":   " << time << std::endl;
-
-	int a = 1;
-}
-
-
-void GenHoughTrans::detect(Size size, int r)
+void GenHoughTrans::detect(Size size, int r, int s)
 {
 	double start = getTickCount();
 	int nr = size.height;
 	int nc = size.width;
 
-	float deltaphi = CV_PI / intervals;
-	int R = ceil(phimax / deltaphi) - floor(phimin / deltaphi);
-	int r0 = -floor(phimin / deltaphi);
-	int X = ceil((float)nc / rangeXY);
-	int Y = ceil((float)nr / rangeXY);
-	int matSizep_S[] = { X, Y, R };
+	int r0 = getFloorR();
+	int X = getX(nc);
+	int Y = getY(nr);
 
-	int reff = r - r0;
-	std::vector<std::vector<Vec2f>> Rtablerotated;
-	GenHoughTrans::RotateTransform(Rtable, Rtablerotated, reff, deltaphi);
+	int reff = r + r0;
+	std::vector<std::vector<Vec2f>> RtableTransform;
+
+	if (1 == getS()) {
+		GenHoughTrans::RotateTransform(Rtable, RtableTransform, reff, getDeltaPhi());
+	}
+	else  {
+		std::vector<std::vector<Vec2f>> Rtablerotated;
+		GenHoughTrans::RotateTransform(Rtable, Rtablerotated, reff, getDeltaPhi());
+		GenHoughTrans::ScaleTransform(Rtablerotated, RtableTransform, s);
+	}
 
 	for (vector<Rpoint2>::size_type t = 0; t < pts2.size(); ++t){ // XY plane				
 		int angleindex = pts2[t].phiIndex;
-		int nSize = Rtablerotated[angleindex].size();
-		std::vector<Vec2f> * pVec = &(Rtablerotated[angleindex]);
+		int nSize = RtableTransform[angleindex].size();
+		std::vector<Vec2f> * pVec = &(RtableTransform[angleindex]);
 		for (std::vector<Vec2f>::size_type index = 0; index < nSize; ++index){
 			float deltax = pVec->at(index)[0];
 			float deltay = pVec->at(index)[1];
@@ -353,11 +271,12 @@ void GenHoughTrans::detect(Size size, int r)
 	double time = (end - start) / getTickFrequency() * 1000.0;
 }
 
-
 void GHTInvoker::operator()(const Range& range) const
 {
 	int i0 = range.start;
 	int i1 = range.end;
 	assert(abs(i1 - i0) == 1);
-	ght->detect(size, i0);
+	int r, s;
+	GenHoughTrans::parse(i0, ght->getR(), r, s);
+	ght->detect(size, r, s);
 }

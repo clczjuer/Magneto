@@ -3,6 +3,7 @@
 #include "GenHoughTrans.h"
 using namespace cv;
 
+
 int main(int argc, char *argv[])
 {
 	QCoreApplication a(argc, argv);
@@ -30,9 +31,9 @@ int main(int argc, char *argv[])
 
 	{
 		cv::Mat imgTemplate;
-		cv::Mat imgSrc = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//src2.bmp").toLatin1().data(), 0);
-		double dScale = 5;
-		resize(imgSrc, imgSrc, Size(imgSrc.cols / dScale, imgSrc.rows / dScale));
+		cv::Mat imgSrc = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//src2.png").toLatin1().data(), 0);
+		double dScale = 4;
+		//resize(imgSrc, imgSrc, Size(imgSrc.cols / dScale, imgSrc.rows / dScale));
 
 		cv::Point ptCenter(1464/dScale, 1000/dScale);
 		ght.genRefPoint(ptCenter);
@@ -61,8 +62,8 @@ int main(int argc, char *argv[])
 		ght.createRTable(imgSrc, imgTemplate);
 
 		Mat imgEdge;
-		Mat imgDst = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//dst2.bmp").toLatin1().data(), 0);
-		resize(imgDst, imgDst, Size(imgDst.cols / dScale, imgDst.rows / dScale));
+		Mat imgDst = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//dst2.png").toLatin1().data(), 0);
+		//resize(imgDst, imgDst, Size(imgDst.cols / dScale, imgDst.rows / dScale));
 
 		//imgSrc = cv::imread(QString(strPath + "//files//rotate25.bmp").toLatin1().data(), 0);
 		Canny(imgDst, imgEdge, 200, 300);

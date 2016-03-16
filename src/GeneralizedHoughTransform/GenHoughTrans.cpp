@@ -128,6 +128,8 @@ void GenHoughTrans::setMethod(int method)
 
 void GenHoughTrans::accumlate(cv::Mat & src, cv::Mat & edge)
 {
+
+
 	if (emXY == method) {
 		accumlate4Shift(src, edge);
 	}
@@ -241,7 +243,6 @@ void GenHoughTrans::accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge)
 	// load all points from image all image contours on vector pts2
 	int nr = src.rows;
 	int nc = src.cols;
-	std::vector<Rpoint2> pts2;
 	GenHoughTrans::getEdgeInfo(src, edge, intervals, rangeXY, pts2);
 
 	float deltaphi = CV_PI / intervals;
@@ -253,31 +254,95 @@ void GenHoughTrans::accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge)
 	accum.create(3, matSizep_S, CV_16S);
 	accum = Scalar::all(0);
 
-	for (int r = 0; r < R; r++) { //rotation
-		int reff = r - r0;
-		std::vector<std::vector<Vec2f>> Rtablerotated(intervals);
-		float cs = cos(reff*deltaphi);
-		float sn = sin(reff*deltaphi);
-		for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < Rtable.size(); ++ii) {
-			for (std::vector<std::vector<Vec2i>>::size_type jj = 0; jj < Rtable[ii].size(); jj++) {
-				int iiMod = (ii + reff) % intervals;
-				Rtablerotated[iiMod].push_back( Vec2f(cs*Rtable[ii][jj][0] - sn * Rtable[ii][jj][1],
-					sn*Rtable[ii][jj][0] + cs*Rtable[ii][jj][1]));
-			}
-		}
+	double start = getTickCount();
+	Mutex mt;
+	parallel_for_(Range(0, R), GHTInvoker(this, Size(nc, nr)));
 
-		for (vector<Rpoint2>::size_type t = 0; t < pts2.size(); ++t){ // XY plane				
-			int angleindex = pts2[t].phiIndex;
-			for (std::vector<Vec2f>::size_type index = 0; index < Rtablerotated[angleindex].size(); ++index){
-				float deltax = Rtablerotated[angleindex][index][0];
-				float deltay = Rtablerotated[angleindex][index][1];
-				int xcell = (int)(pts2[t].x + deltax);
-				int ycell = (int)(pts2[t].y + deltay);
-				if ((xcell<X) && (ycell<Y) && (xcell>-1) && (ycell>-1)){
-					//(*ptrat2D<short>(accum, xcell, ycell))++;
-					(*ptrat3D<short>(accum, xcell, ycell, r))++;
-				}
+// 	
+// 	for (int r = 0; r < R; r++) { //rotation
+// 		int reff = r - r0;
+// 		std::vector<std::vector<Vec2f>> Rtablerotated(intervals);
+// 		float cs = cos(reff*deltaphi);
+// 		float sn = sin(reff*deltaphi);
+// 		for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < Rtable.size(); ++ii) {
+// 			for (std::vector<std::vector<Vec2i>>::size_type jj = 0; jj < Rtable[ii].size(); jj++) {
+// 				int iiMod = (ii + reff) % intervals;
+// 				Rtablerotated[iiMod].push_back( Vec2f(cs*Rtable[ii][jj][0] - sn * Rtable[ii][jj][1],
+// 					sn*Rtable[ii][jj][0] + cs*Rtable[ii][jj][1]));
+// 			}
+// 		}
+// 
+// 		for (vector<Rpoint2>::size_type t = 0; t < pts2.size(); ++t){ // XY plane				
+// 			int angleindex = pts2[t].phiIndex;
+// 			for (std::vector<Vec2f>::size_type index = 0; index < Rtablerotated[angleindex].size(); ++index){
+// 				float deltax = Rtablerotated[angleindex][index][0];
+// 				float deltay = Rtablerotated[angleindex][index][1];
+// 				int xcell = (int)(pts2[t].x + deltax);
+// 				int ycell = (int)(pts2[t].y + deltay);
+// 				if ((xcell<X) && (ycell<Y) && (xcell>-1) && (ycell>-1)){
+// 					//(*ptrat2D<short>(accum, xcell, ycell))++;
+// 					(*ptrat3D<short>(accum, xcell, ycell, r))++;
+// 				}
+// 			}
+// 		}
+// 	}
+
+	double end = getTickCount();
+	double time = (end - start) / getTickFrequency() * 1000.0;
+	std::cout << "total" << ":   " << time << std::endl;
+
+	int a = 1;
+}
+
+void GenHoughTrans::detect(Size size, int r)
+{
+	std::cout << r << std::endl;
+	double start = getTickCount();
+	int nr = size.height;
+	int nc = size.width;
+
+	float deltaphi = CV_PI / intervals;
+	int R = ceil(phimax / deltaphi) - floor(phimin / deltaphi);
+	int r0 = -floor(phimin / deltaphi);
+	int X = ceil((float)nc / rangeXY);
+	int Y = ceil((float)nr / rangeXY);
+	int matSizep_S[] = { X, Y, R };
+
+	int reff = r - r0;
+	std::vector<std::vector<Vec2f>> Rtablerotated(intervals);
+	float cs = cos(reff*deltaphi);
+	float sn = sin(reff*deltaphi);
+	for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < Rtable.size(); ++ii) {
+		for (std::vector<std::vector<Vec2i>>::size_type jj = 0; jj < Rtable[ii].size(); jj++) {
+			int iiMod = (ii + reff) % intervals;
+			Rtablerotated[iiMod].push_back(Vec2f(cs*Rtable[ii][jj][0] - sn * Rtable[ii][jj][1],
+				sn*Rtable[ii][jj][0] + cs*Rtable[ii][jj][1]));
+		}
+	}
+
+	for (vector<Rpoint2>::size_type t = 0; t < pts2.size(); ++t){ // XY plane				
+		int angleindex = pts2[t].phiIndex;
+		for (std::vector<Vec2f>::size_type index = 0; index < Rtablerotated[angleindex].size(); ++index){
+			float deltax = Rtablerotated[angleindex][index][0];
+			float deltay = Rtablerotated[angleindex][index][1];
+			int xcell = (int)(pts2[t].x + deltax);
+			int ycell = (int)(pts2[t].y + deltay);
+			if ((xcell<X) && (ycell<Y) && (xcell>-1) && (ycell>-1)){
+				//(*ptrat2D<short>(accum, xcell, ycell))++;
+				//(*ptrat3D<short>(accum, xcell, ycell, r))++;
+				(*ptrat3D<short>(accum, xcell, ycell, r))++;
 			}
 		}
 	}
+	double end = getTickCount();
+	double time = (end - start) / getTickFrequency() * 1000.0;
+}
+
+
+void GHTInvoker::operator()(const Range& range) const
+{
+	int i0 = range.start;
+	int i1 = range.end;
+	assert(abs(i1 - i0) == 1);
+	ght->detect(size, i0);
 }

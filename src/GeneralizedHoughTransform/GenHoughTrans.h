@@ -3,6 +3,7 @@
 
 #include "cv.h"
 #include "highgui.h"
+#include "core\core.hpp"
 
 namespace Magneto {
 	struct Rpoint {
@@ -23,6 +24,7 @@ class GenHoughTrans
 {
 	cv::Mat accum;
 	std::vector<Magneto::Rpoint> pts;
+	std::vector<Magneto::Rpoint2> pts2;
 
 	// reference point (inside contour)
 	cv::Vec2i refPoint;
@@ -37,7 +39,6 @@ class GenHoughTrans
 	int rangeXY;
 
 	int method;
-
 public:
 	enum EM_GHT_METHOD{
 		emXY = 0x01, emRotate = 0x02, emScale = 0x04
@@ -45,6 +46,10 @@ public:
 	GenHoughTrans();
 	~GenHoughTrans();
 	void setMethod(int method);
+	int getIntervals() const { return intervals; }
+	float getMinPhi() const { return phimin; }
+	float getMaxPhi() const { return phimax; }
+	int getRangeXY() const { return rangeXY; }
 
 	void genRefPoint(cv::Mat &edge);
 	void genRefPoint(cv::Point pt) {
@@ -63,6 +68,25 @@ public:
 
 	void bestCandidate(cv::Mat & src);
 
+	void detect(cv::Size size, int r);
 };
+
+
+
+class GHTInvoker : public cv::ParallelLoopBody {
+public:
+	GHTInvoker(GenHoughTrans *_ght,cv::Size _size){
+		ght = _ght;
+		size = _size;
+	}
+
+	cv::Size size;
+	GenHoughTrans *ght;
+
+	virtual void operator() (const cv::Range& range) const;
+};
+
+
+
 #endif // LP_GenHoughTrans_H_
 

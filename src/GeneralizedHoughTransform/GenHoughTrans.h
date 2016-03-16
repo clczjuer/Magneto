@@ -62,6 +62,8 @@ public:
 	void createRTable(cv::Mat &src, cv::Mat & edge);
 
 	void accumlate(cv::Mat & src, cv::Mat & edge);
+	void accumlate4Shift();
+
 	void accumlate4Shift(cv::Mat & src, cv::Mat & edge);
 	void accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge);
 	void accumlate4Rotate(cv::Mat & src, cv::Mat & edge);
@@ -69,6 +71,10 @@ public:
 	void bestCandidate(cv::Mat & src);
 
 	void detect(cv::Size size, int r);
+
+	static void RotateTransform(std::vector<std::vector<cv::Vec2i>> & RtableSrc, 
+		std::vector<std::vector<cv::Vec2i>> &RtableRotate, int angleIndex, float deltaAngle);
+	static void ScaleTransform(std::vector<std::vector<cv::Vec2i>> & RtableSrc, std::vector<std::vector<cv::Vec2i>> &RtableScaled, float dScale);
 };
 
 

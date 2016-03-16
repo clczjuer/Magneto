@@ -128,6 +128,24 @@ void GenHoughTrans::setMethod(int method)
 
 void GenHoughTrans::accumlate(cv::Mat & src, cv::Mat & edge)
 {
+	std::vector<Rpoint2> pts2;
+	GenHoughTrans::getEdgeInfo(src, edge, intervals, rangeXY, pts2);
+
+	int nr = src.rows;
+	int nc = src.cols;
+	Size size(nc, nr);
+
+	float deltaphi = CV_PI / intervals;
+	int R = ceil(phimax / deltaphi) - floor(phimin / deltaphi);
+	int r0 = -floor(phimin / deltaphi);
+
+	int X = ceil((float)nc / rangeXY);
+	int Y = ceil((float)nr / rangeXY);
+	int S = 1;// ceil((float)(wmax - wmin) / rangeS + 1.0f);
+
+	int matSizep_S[] = { X, Y, R};
+	accum.create(3, matSizep_S, CV_16S);
+	accum = Scalar::all(0);
 
 
 	if (emXY == method) {
@@ -171,6 +189,10 @@ void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
 	}
 }
 
+void GenHoughTrans::accumlate4Shift()
+{
+
+}
 void GenHoughTrans::bestCandidate(cv::Mat & src)
 {
 	double minval;
@@ -255,8 +277,10 @@ void GenHoughTrans::accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge)
 	accum = Scalar::all(0);
 
 	double start = getTickCount();
-	Mutex mt;
-	parallel_for_(Range(0, R), GHTInvoker(this, Size(nc, nr)));
+
+	GenHoughTrans::RotateTransform();
+
+	//parallel_for_(Range(0, R), GHTInvoker(this, Size(nc, nr)));
 
 // 	
 // 	for (int r = 0; r < R; r++) { //rotation
@@ -292,6 +316,49 @@ void GenHoughTrans::accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge)
 	std::cout << "total" << ":   " << time << std::endl;
 
 	int a = 1;
+}
+
+
+void GenHoughTrans::RotateTransform(std::vector<std::vector<cv::Vec2i>> & RtableSrc, std::vector<std::vector<cv::Vec2i>> &RtableRotated, int angleIndex, float deltaAngle)
+{
+	int intervals = RtableSrc.size();
+	double cs = cos(angleIndex * deltaAngle);
+	double sn = sin(angleIndex * deltaAngle);
+	//<! new
+	{
+		RtableRotated.resize(intervals);
+		for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < RtableSrc.size(); ++ii) {
+			int nSize = RtableSrc[ii].size();
+			int iiMod = (ii + angleIndex) % intervals;
+			RtableRotated[iiMod].resize(nSize);
+			for (std::vector<std::vector<Vec2i>>::size_type jj = 0; jj < nSize; jj++) {
+				RtableRotated[iiMod][jj] = Vec2f(cs*RtableSrc[ii][jj][0] - sn * RtableSrc[ii][jj][1],
+					sn*RtableSrc[ii][jj][0] + cs*RtableSrc[ii][jj][1]);
+			}
+		}
+	}
+
+	//<! old
+	{
+		for (std::vector<std::vector<Vec2i>>::size_type ii = 0; ii < RtableSrc.size(); ++ii) {
+			int nSize = RtableSrc[ii].size();
+			for (std::vector<std::vector<Vec2i>>::size_type jj = 0; jj < nSize; jj++) {
+				int iiMod = (ii + angleIndex) % intervals;
+				RtableRotated[iiMod].push_back(Vec2f(cs*RtableSrc[ii][jj][0] - sn * RtableSrc[ii][jj][1],
+					sn*RtableSrc[ii][jj][0] + cs*RtableSrc[ii][jj][1]));
+			}
+		}
+	}
+}
+
+void GenHoughTrans::ScaleTransform(std::vector<std::vector<cv::Vec2i>> & RtableSrc, std::vector<std::vector<cv::Vec2i>> &RtableScaled, float dScale)
+{
+	for (std::vector<std::vector<Vec2f>>::size_type ii = 0; ii < RtableSrc.size(); ++ii){
+		int nSize = RtableSrc[ii].size();
+		for (std::vector<Vec2f>::size_type jj = 0; jj < nSize; ++jj){
+			RtableScaled[ii].push_back(Vec2f(dScale*RtableSrc[ii][jj][0], dScale*RtableSrc[ii][jj][1]));
+		}
+	}
 }
 
 void GenHoughTrans::detect(Size size, int r)

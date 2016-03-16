@@ -30,6 +30,45 @@ int main(int argc, char *argv[])
 #endif // LP_LOCK_
 
 	{
+
+		int nSize = 1000000;
+		int nTimes = 100;
+		std::cout << "nSize = " << nSize << std::endl;
+		std::cout << "nTimes = " << nTimes << std::endl;
+
+		//<! method 1
+		{
+			double start = getTickCount();
+			for (int i = 0; i < nTimes; i++) {
+				std::vector<int> vec;
+				for (int j = 0; j < nSize; j++) {
+					vec.push_back(j);
+				}
+			}
+			double end = getTickCount();
+
+			double time = (end - start) / getTickFrequency() * 1000.0;
+			std::cout << "avg time1: " << time / nTimes << "ms" << std::endl;
+		}
+
+		//<! method 2
+		{
+			double start = getTickCount();
+			for (int i = 0; i < nTimes; i++) {
+				std::vector<int> vec;
+				vec.resize(nSize);
+				for (int j = 0; j < nSize; j++) {
+					vec[j] = j;
+				}
+			}
+			double end = getTickCount();
+
+			double time = (end - start) / getTickFrequency() * 1000.0;
+			std::cout << "avg time2: " << time / nTimes << "ms" << std::endl;
+		}
+
+
+
 		cv::Mat imgTemplate;
 		cv::Mat imgSrc = cv::imread(QString(strPath + "//files//GeneralizedHoughTransform//src2.png").toLatin1().data(), 0);
 		double dScale = 4;

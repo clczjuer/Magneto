@@ -31,8 +31,8 @@ int main(int argc, char *argv[])
 
 	{
 
-		int nSize = 1000000;
-		int nTimes = 100;
+		int nSize = 1;
+		int nTimes = 1;
 		std::cout << "nSize = " << nSize << std::endl;
 		std::cout << "nTimes = " << nTimes << std::endl;
 

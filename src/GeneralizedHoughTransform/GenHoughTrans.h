@@ -39,6 +39,9 @@ class GenHoughTrans
 	int rangeXY;
 
 	int method;
+	int deltaPhi;
+
+
 public:
 	enum EM_GHT_METHOD{
 		emXY = 0x01, emRotate = 0x02, emScale = 0x04
@@ -49,12 +52,18 @@ public:
 	int getIntervals() const { return intervals; }
 	float getMinPhi() const { return phimin; }
 	float getMaxPhi() const { return phimax; }
+
+	int getFloorR() const {return}
+
 	int getRangeXY() const { return rangeXY; }
 
 	void genRefPoint(cv::Mat &edge);
 	void genRefPoint(cv::Point pt) {
 		refPoint = pt; 
 	}
+
+
+
 	static void phase(cv::Mat &src, cv::Mat &angle);
 	static void getEdgeInfo(cv::Mat &src, cv::Mat & edge, cv::Point pt, std::vector<Magneto::Rpoint> &pts);
 	static void getEdgeInfo(cv::Mat &src, cv::Mat & edge, int intervals, float rangeXY, std::vector<Magneto::Rpoint2> &pts2);
@@ -72,9 +81,35 @@ public:
 
 	void detect(cv::Size size, int r);
 
-	static void RotateTransform(std::vector<std::vector<cv::Vec2i>> & RtableSrc, 
-		std::vector<std::vector<cv::Vec2i>> &RtableRotate, int angleIndex, float deltaAngle);
-	static void ScaleTransform(std::vector<std::vector<cv::Vec2i>> & RtableSrc, std::vector<std::vector<cv::Vec2i>> &RtableScaled, float dScale);
+	template<typename T1, typename T2>
+	static void RotateTransform(std::vector<std::vector<T1>> & RtableSrc,
+		std::vector<std::vector<T2>> &RtableRotated, int angleIndex, float deltaAngle) {
+		int intervals = RtableSrc.size();
+		double cs = cos(angleIndex * deltaAngle);
+		double sn = sin(angleIndex * deltaAngle);
+		RtableRotated.resize(intervals);
+		for (std::vector<std::vector<T1>>::size_type ii = 0; ii < RtableSrc.size(); ++ii) {
+			int nSize = RtableSrc[ii].size();
+			int iiMod = (ii + angleIndex) % intervals;
+			RtableRotated[iiMod].resize(nSize);
+			for (std::vector<std::vector<T1>>::size_type jj = 0; jj < nSize; jj++) {
+				RtableRotated[iiMod][jj] = T2(cs*RtableSrc[ii][jj][0] - sn * RtableSrc[ii][jj][1],
+					sn*RtableSrc[ii][jj][0] + cs*RtableSrc[ii][jj][1]);
+			}
+		}
+	}
+ 
+	template<typename T1, typename T2>
+	static void ScaleTransform(std::vector<std::vector<T1>> & RtableSrc, std::vector<std::vector<T2>> &RtableScaled, float dScale) {
+		RtableScaled.resize(RtableSrc.size());
+		for (std::vector<std::vector<T1>>::size_type ii = 0; ii < RtableSrc.size(); ++ii){
+			int nSize = RtableSrc[ii].size();
+			RtableScaled[ii].resize(nSize);
+			for (std::vector<T1>::size_type jj = 0; jj < nSize; ++jj){
+				RtableScaled[ii][jj] = T2(dScale*RtableSrc[ii][jj][0], dScale*RtableSrc[ii][jj][1]);
+			}
+		}
+	}
 };
 
 

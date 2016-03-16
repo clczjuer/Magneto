@@ -1,20 +1,21 @@
 #include "GenHoughTrans.h"
 #include "Manipulation.h"
+
 using namespace cv;
 using namespace Magneto;
+
 GenHoughTrans::GenHoughTrans()
 {
-	intervals = 16;
+	intervals = 25;
 	phimin = -CV_PI;
 	phimax = CV_PI;
 	rangeXY = 1;
+	method = emXY + emRotate + emScale;
 }
-
 
 GenHoughTrans::~GenHoughTrans()
 {
 }
-
 
 void GenHoughTrans::genRefPoint(cv::Mat &edge)
 {
@@ -120,6 +121,26 @@ void GenHoughTrans::createRTable(cv::Mat &src, cv::Mat & edge)
 	}
 }
 
+void GenHoughTrans::setMethod(int method)
+{
+	this->method = method;
+}
+
+void GenHoughTrans::accumlate(cv::Mat & src, cv::Mat & edge)
+{
+	if (emXY == method) {
+		accumlate4Shift(src, edge);
+	}
+	else if (emXY + emRotate == method) {
+		accumlate4ShiftAndRotate(src, edge);
+	}
+	else if (emRotate == method) {
+		accumlate4ShiftAndRotate(src, edge);
+	}
+
+	return;
+}
+
 void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
 {
 	// load all points from image all image contours on vector pts2
@@ -148,7 +169,6 @@ void GenHoughTrans::accumlate4Shift(cv::Mat & src, cv::Mat & edge)
 	}
 }
 
-
 void GenHoughTrans::bestCandidate(cv::Mat & src)
 {
 	double minval;
@@ -157,18 +177,32 @@ void GenHoughTrans::bestCandidate(cv::Mat & src)
 	int id_max[4] = { 0, 0, 0, 0 };
 	minMaxIdx(accum, &minval, &maxval, id_min, id_max);
 
+
 	int nr = src.rows;
 	int nc = src.cols;
+
+	double dMax = -1;
+	int index = 0;
+	for (int i = 0; i < nr; i++) {
+		double r = (*ptrat3D<short>(accum, refPoint(0), refPoint(1) , i));
+		if (r > dMax) {
+			index = i;
+			dMax = r;
+		}
+	}
+
+	id_max[2] = index;
+
 	Mat	input_img2;// = input_img.clone();
 	cvtColor(src, input_img2, CV_GRAY2BGR);
-	Vec2i referenceP = Vec2i(id_max[0] * rangeXY + (rangeXY + 1) / 2, id_max[1] * rangeXY + (rangeXY + 1) / 2);
+	Vec2i referenceP = refPoint;//  Vec2i(id_max[0] * rangeXY + (rangeXY + 1) / 2, id_max[1] * rangeXY + (rangeXY + 1) / 2);
 	Point pt = referenceP;
 	cv::circle(input_img2, pt, 3, Scalar(0, 0, 255), 2);
 	// rotate and scale points all at once. Then impress them on image
 	std::vector<std::vector<Vec2i>> Rtablerotatedscaled(intervals);
 	float deltaphi = CV_PI / intervals;
 	int r0 = -floor(phimin / deltaphi);
-	int reff =  id_max[2] - r0;
+	int reff = id_max[2] - r0;
 	float cs = cos(reff*deltaphi);
 	float sn = sin(reff*deltaphi);
 	//int w = wmin + id_max[2] * rangeS;
@@ -247,4 +281,3 @@ void GenHoughTrans::accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge)
 		}
 	}
 }
-

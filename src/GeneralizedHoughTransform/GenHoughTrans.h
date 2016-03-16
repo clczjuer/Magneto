@@ -35,12 +35,19 @@ class GenHoughTrans
 	float phimax;
 	// dimension in pixels of squares in image
 	int rangeXY;
+
+	int method;
+
 public:
+	enum EM_GHT_METHOD{
+		emXY = 0x01, emRotate = 0x02, emScale = 0x04
+	};
 	GenHoughTrans();
 	~GenHoughTrans();
+	void setMethod(int method);
 
 	void genRefPoint(cv::Mat &edge);
-	void setRefPoint(cv::Point pt) { 
+	void genRefPoint(cv::Point pt) {
 		refPoint = pt; 
 	}
 	static void phase(cv::Mat &src, cv::Mat &angle);
@@ -49,8 +56,10 @@ public:
 
 	void createRTable(cv::Mat &src, cv::Mat & edge);
 
+	void accumlate(cv::Mat & src, cv::Mat & edge);
 	void accumlate4Shift(cv::Mat & src, cv::Mat & edge);
 	void accumlate4ShiftAndRotate(cv::Mat & src, cv::Mat & edge);
+	void accumlate4Rotate(cv::Mat & src, cv::Mat & edge);
 
 	void bestCandidate(cv::Mat & src);
 

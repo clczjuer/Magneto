@@ -2216,10 +2216,10 @@ double * lsd_scale_region( int * n_out,
   /* LSD parameters */
   double sigma_scale = 0.6; /* Sigma for Gaussian filter is computed as
                                 sigma = sigma_scale/scale.                    */
-  double quant = 2;       /* Bound to the quantization error on the
+  double quant = 2.0;       /* Bound to the quantization error on the
                                 gradient norm.                                */
-  double ang_th = 45;// 22.5;     /* Gradient angle tolerance in degrees.           */
-  double log_eps = 0;     /* Detection threshold: -log10(NFA) > log_eps     */
+  double ang_th = 22.5;     /* Gradient angle tolerance in degrees.           */
+  double log_eps = 0.0;     /* Detection threshold: -log10(NFA) > log_eps     */
   double density_th = 0.7;  /* Minimal density of region points in rectangle. */
   int n_bins = 1024;        /* Number of bins in pseudo-ordering of gradient
                                modulus.                                       */
@@ -2247,5 +2247,4 @@ double * lsd(int * n_out, double * img, int X, int Y)
 
   return lsd_scale(n_out,img,X,Y,scale);
 }
-
 /*----------------------------------------------------------------------------*/
